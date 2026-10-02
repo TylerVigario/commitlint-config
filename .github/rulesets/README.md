@@ -73,9 +73,9 @@ is inherited by anything authenticating as that actor: on a single-owner reposit
 "repository admin" exempts the owner *and* every automation acting on the owner's
 behalf, which is the entire population the rule exists to constrain.
 
-The one App is the release's, `vigario-commitlint-config-release`, installed on this
-repository alone, because a release records its version and changelog on `main` and
-nothing else may write it. The list is empty until that App is installed: a bypass
+The one App is the release's, **`commitlint-config-release` (App ID 5159975)**,
+installed on this repository alone, because a release records its version and changelog
+on `main` and nothing else may write it. It is listed only once installed: a bypass
 naming an actor the forge cannot resolve fails the whole payload, not just that entry.
 Its blast radius is its own permissions — contents read and write, and no workflows
 scope, so the actor that can write the branch cannot rewrite what runs on it.

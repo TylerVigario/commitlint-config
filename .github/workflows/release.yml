@@ -35,8 +35,9 @@ name: Release
 # maintainer already decided by dispatching the run.
 #
 # SETUP, once, by the owner -- recorded so it can be rebuilt:
-#   1. A GitHub App owned by @TylerVigario, `vigario-commitlint-config-release`.
-#      Repository permissions: Contents read and write, nothing else. Webhook off.
+#   1. A GitHub App owned by @TylerVigario, `commitlint-config-release` (App ID
+#      5159975). Repository permissions: Contents read and write, nothing else.
+#      Webhook off.
 #   2. Installed on this repository only. An installation does not follow a
 #      repository transfer; re-install after one.
 #   3. A `release` environment with deployments limited to protected branches and
