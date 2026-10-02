@@ -1,6 +1,6 @@
 name: Commit convention
 
-# Both ends of the convention, against one config — rule 7.
+# Both ends of the convention, against one config — the repository standard's rule 4.
 #
 #   Validate PR title   pull_request.  A gate: it can block the merge.
 #   Lint main           push.          A notification: the commit already exists.
@@ -19,7 +19,7 @@ name: Commit convention
 #
 # Lint main MUST NOT become a required status check. It cannot report on a
 # pull_request event, so requiring it would leave every PR waiting on a context
-# that will never arrive — rule 12 names that trap explicitly.
+# that will never arrive — rule 4 names that trap explicitly.
 #
 # Both jobs lint this repository against its OWN config. index.mjs is the package
 # and the configuration at once, so a change that breaks conforming commits fails
@@ -44,13 +44,13 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # commitlint reads the piped string and the config file; it needs no
           # git history.
           fetch-depth: 1
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -72,13 +72,13 @@ jobs:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Full history: the range below asks what landed, and a depth of 1
           # cannot answer that for a push carrying more than one commit.
           fetch-depth: 0
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
           cache: npm
