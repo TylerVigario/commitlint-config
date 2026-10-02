@@ -7,11 +7,12 @@
     "commitlint-config",
     "conventional-commits"
   ],
-  "homepage": "https://github.com/Vigario-Technology-Solutions/commitlint-config",
+  "homepage": "https://github.com/TylerVigario/commitlint-config#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Vigario-Technology-Solutions/commitlint-config.git"
+    "url": "git+https://github.com/TylerVigario/commitlint-config.git"
   },
+  "bugs": "https://github.com/TylerVigario/commitlint-config/issues",
   "license": "AGPL-3.0-or-later",
   "author": "Tyler Vigario",
   "type": "module",
@@ -27,7 +28,7 @@
     "conventional-changelog-conventionalcommits": ">=8"
   },
   "devDependencies": {
-    "@commitlint/cli": "^20",
-    "conventional-changelog-conventionalcommits": "^8"
+    "@commitlint/cli": "^21.2.3",
+    "conventional-changelog-conventionalcommits": "^10.4.0"
   }
 }
