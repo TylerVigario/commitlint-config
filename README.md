@@ -38,9 +38,9 @@ the tags:
 
 ```jsonc
 "devDependencies": {
-  "@commitlint/cli": "^20",
-  "conventional-changelog-conventionalcommits": "^8",
-  "@vts/commitlint-config": "github:Vigario-Technology-Solutions/commitlint-config#semver:^0.3.0"
+  "@commitlint/cli": "^21",
+  "conventional-changelog-conventionalcommits": "^10",
+  "@vts/commitlint-config": "github:TylerVigario/commitlint-config#semver:^0.3.0"
 }
 ```
 
@@ -173,6 +173,19 @@ needs no credentials for a public repository, no publish pipeline, and no name h
 anywhere. Tags, semver ranges and lockfile pinning all work regardless; what a registry
 would add is discoverability and provenance attestations, neither of which this needs.
 
+## Releases
+
+A release is a tag, `v<version>`, made by the Release workflow on a commit that
+records that version in `package.json` and its entry in
+[`CHANGELOG.md`](CHANGELOG.md). The version comes from the commits since the last
+tag: `feat` bumps the minor version, `fix` the patch, and before 1.0 a breaking
+change bumps the minor as well. Tags are create-once — none is moved or deleted —
+so the commit `#semver:^0.3.0` resolves to today is the one it resolves to for
+ever.
+
 ## Licence
 
-AGPL-3.0-or-later.
+Copyright © 2026 Tyler Vigario.
+
+Free software under the [GNU Affero General Public License](LICENSE), version 3
+or (at your option) any later version.
