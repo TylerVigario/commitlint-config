@@ -1,0 +1,42 @@
+name: A commit is judged wrongly
+description: A commit message that passes and should not, or fails and should not.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The yardstick is the Conventional Commits specification, not another
+        linter's house style. A commit refused for its case, length or
+        punctuation is not refused by this package.
+  - type: textarea
+    id: message
+    attributes:
+      label: The commit message, exactly
+      description: Paste it whole. A trailing space or a missing blank line can be the whole story.
+      render: text
+    validations:
+      required: true
+  - type: dropdown
+    id: expected
+    attributes:
+      label: What you expected
+      options:
+        - It should pass
+        - It should fail
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: What commitlint said
+      description: The full output of `npx commitlint --verbose`.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: versions
+    attributes:
+      label: Versions and config
+      description: The tag of this package, `@commitlint/cli`, `conventional-changelog-conventionalcommits`, and your commitlint config.
+    validations:
+      required: true

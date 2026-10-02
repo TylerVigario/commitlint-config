@@ -1,0 +1,23 @@
+name: A change to what is enforced
+description: Propose that the package enforce something it does not, or stop enforcing something it does.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This package enforces what the Conventional Commits specification
+        fixes and nothing else. A rule about how a commit looks — case, length,
+        punctuation — is style, and is declined; CONTRIBUTING.md says why.
+  - type: textarea
+    id: what
+    attributes:
+      label: The change
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Where the specification says so
+      description: The item of the specification this follows from, quoted.
+    validations:
+      required: true
