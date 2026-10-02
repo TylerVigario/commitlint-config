@@ -1,0 +1,221 @@
+name: Release
+
+# One manual run releases this package: git-cliff derives the next version from
+# the commits since the last tag, CI runs as the gate, the version and the
+# changelog are recorded on main, and the tag is made on that record.
+#
+# A RELEASE IS A TAG. Consumers install from git with a `#semver:` range, which
+# npm resolves against this repository's tags and installs from the tagged tree.
+# So the tagged tree is the artifact: it has to carry the version in package.json
+# and the changelog, which is why the record comes before the tag here rather than
+# after it. There is no GitHub release and nothing attached to one -- the tag is
+# the whole of what a consumer reads, and the tag ruleset makes it create-once.
+#
+# THE ORDER IS THE POINT. Nothing may fail halfway and leave a halfway state, so
+# everything that can fail happens before anything that cannot be taken back:
+#
+#   decide   read-only. Derives the version, refuses a tag that already exists,
+#            and previews the entry in the run summary.
+#   gate     ci.yml, called: nothing is released that a merge would refuse.
+#   publish  skipped on a dry run. Writes the record -- only if main is still the
+#            commit the gate passed, so what is tagged is what was tested -- then
+#            makes the tag on it. The tag can refuse only for a name that already
+#            exists, and decide has already established that it does not.
+#
+# A run that stops between the two writes is finished by dispatching again:
+# decide finds main's head is the record and the tag absent, and makes the tag
+# alone.
+#
+# WHY AN APP. main takes no direct push, and the record writes main. The one
+# exemption is a GitHub App installed on this repository alone, the single bypass
+# actor on main-protection. Its credentials are environment secrets on `release`,
+# not repository secrets, and the environment admits protected branches only, so
+# a workflow on any other branch cannot read them however it is changed. There is
+# no required reviewer: with one maintainer it would confirm only what that
+# maintainer already decided by dispatching the run.
+#
+# SETUP, once, by the owner -- recorded so it can be rebuilt:
+#   1. A GitHub App owned by @TylerVigario, `commitlint-config-release` (App ID
+#      5159975). Repository permissions: Contents read and write, nothing else.
+#      Webhook off.
+#   2. Installed on this repository only. An installation does not follow a
+#      repository transfer; re-install after one.
+#   3. A `release` environment with deployments limited to protected branches and
+#      no required reviewer, holding RELEASE_APP_CLIENT_ID (the Iv23li... Client
+#      ID, not the numeric App ID) and RELEASE_APP_PRIVATE_KEY as environment
+#      secrets.
+#   4. The App added to bypass_actors in .github/rulesets/main.json by its numeric
+#      App ID, and that payload re-applied.
+#
+# A dry run needs none of that: decide and the gate run, and the entry goes to the
+# run summary. Nothing is written anywhere.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Derive, preview and gate; write nothing"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  decide:
+    name: Decide the version
+    runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.decide.outputs.mode }}
+      version: ${{ steps.decide.outputs.version }}
+      tag: ${{ steps.decide.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # git-cliff walks back to the previous tag. A shallow clone computes
+          # the wrong version silently rather than failing.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Decide
+        id: decide
+        run: |
+          set -euo pipefail
+          # With nothing bump-worthy since the last tag, git-cliff answers with
+          # that tag, which exists -- so "nothing to release" and "already
+          # released" are the same branch below.
+          next=$(npx --yes git-cliff@2 --config cliff.toml --bumped-version 2>/dev/null)
+          [ -n "$next" ] || { echo "::error::git-cliff derived no version"; exit 1; }
+          if git ls-remote --exit-code --tags origin "refs/tags/$next" > /dev/null; then
+            echo "mode=none" >> "$GITHUB_OUTPUT"
+            echo "$next is already tagged. Nothing to release."
+            exit 0
+          fi
+          if [ "$(git log -1 --format=%s HEAD)" = "chore(release): $next" ]; then
+            # The record landed and the tag did not: a run that stopped between
+            # the two writes. Finish it.
+            mode=tag
+          else
+            mode=release
+          fi
+          echo "next=$next mode=$mode"
+          {
+            echo "mode=$mode"
+            echo "version=${next#v}"
+            echo "tag=$next"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Preview the entry
+        if: steps.decide.outputs.mode == 'release'
+        env:
+          TAG: ${{ steps.decide.outputs.tag }}
+        run: |
+          {
+            echo "## $TAG, as it will be recorded"
+            echo
+            npx --yes git-cliff@2 --config cliff.toml --unreleased --tag "$TAG" --strip all
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  gate:
+    name: Gate
+    needs: decide
+    if: needs.decide.outputs.mode == 'release'
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  publish:
+    name: Record and tag
+    needs: [decide, gate]
+    # A tag-only run skips the gate: the commit it tags was gated by the run
+    # that recorded it, and it changes nothing but the receipt.
+    if: >-
+      always() && !inputs.dry-run &&
+      ((needs.decide.outputs.mode == 'release' && needs.gate.result == 'success') ||
+       needs.decide.outputs.mode == 'tag')
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+    steps:
+      - name: Mint a token for the release App
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ secrets.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Write the record to main
+        id: record
+        if: needs.decide.outputs.mode == 'release'
+        # NOT `git commit && git push`. A push sends an object already built, so
+        # it arrives unsigned no matter which token carried it.
+        # createCommitOnBranch has GitHub construct the object and sign it with
+        # its own key.
+        #
+        # expectedHeadOid is the commit the gate passed. If anything landed on
+        # main since, the forge refuses and nothing is written: dispatch again,
+        # and the new head is gated and released instead.
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          TAG: ${{ needs.decide.outputs.tag }}
+          VERSION: ${{ needs.decide.outputs.version }}
+        run: |
+          set -euo pipefail
+          npm version "$VERSION" --no-git-tag-version --allow-same-version > /dev/null
+          npx --yes git-cliff@2 --config cliff.toml --tag "$TAG" --output CHANGELOG.md
+          jq -n \
+            --arg repo "$GITHUB_REPOSITORY" \
+            --arg head "$GITHUB_SHA" \
+            --arg msg "chore(release): $TAG" \
+            --rawfile pkg package.json \
+            --rawfile lock package-lock.json \
+            --rawfile log CHANGELOG.md \
+            '{query:"mutation($input:CreateCommitOnBranchInput!){createCommitOnBranch(input:$input){commit{oid}}}",
+              variables:{input:{
+                branch:{repositoryNameWithOwner:$repo,branchName:"main"},
+                expectedHeadOid:$head,
+                message:{headline:$msg},
+                fileChanges:{additions:[
+                  {path:"package.json",contents:($pkg|@base64)},
+                  {path:"package-lock.json",contents:($lock|@base64)},
+                  {path:"CHANGELOG.md",contents:($log|@base64)}]}}}}' > "$RUNNER_TEMP/mutation.json"
+          if ! oid=$(gh api graphql --input "$RUNNER_TEMP/mutation.json" --jq '.data.createCommitOnBranch.commit.oid') || [ -z "$oid" ]; then
+            echo "::error::main is no longer the commit the gate passed, or the forge refused. Nothing was written; dispatch again."
+            exit 1
+          fi
+          echo "recorded $TAG as $oid"
+          echo "oid=$oid" >> "$GITHUB_OUTPUT"
+
+      - name: Tag the record
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          TAG: ${{ needs.decide.outputs.tag }}
+          # In a tag-only run the record is the commit this run was dispatched at.
+          OID: ${{ steps.record.outputs.oid || github.sha }}
+        run: |
+          set -euo pipefail
+          if ! gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$TAG" -f sha="$OID" > /dev/null; then
+            echo "::error::$TAG is recorded on main but not tagged. Dispatch again: it finds the record and tags it."
+            exit 1
+          fi
+          echo "tagged $TAG -> $OID"

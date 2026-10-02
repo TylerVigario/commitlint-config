@@ -1,6 +1,7 @@
 # Rulesets
 
-`main.json` is the branch protection payload for this repository. It is committed
+`main.json` is the branch protection payload for this repository, and `tags.json`
+the tag protection. They are committed
 because a ruleset is applied state that lives only on GitHub: it vanishes silently on
 repository recreate, rename or fork, and nothing in a clone reveals it is gone.
 
@@ -67,17 +68,37 @@ the change, tighten it again, then verify against the rules endpoint.
 `pull_request` event, so requiring it would leave every pull request waiting on a context
 that never arrives.
 
-**`bypass_actors: []`** — an actor-based exemption is inherited by anything
-authenticating as that actor. On a single-owner repository "repository admin" exempts
-the owner *and* every automation acting on the owner's behalf, which is the entire
-population the rule exists to constrain. To push directly, set `enforcement` to
-`disabled` first — a deliberate, visible act with a record.
+**`bypass_actors`** — one App or none, never an actor *type*. An actor-type exemption
+is inherited by anything authenticating as that actor: on a single-owner repository
+"repository admin" exempts the owner *and* every automation acting on the owner's
+behalf, which is the entire population the rule exists to constrain.
 
-## Not included
+The one App is the release's, **`commitlint-config-release` (App ID 5159975)**,
+installed on this repository alone, because a release records its version and changelog
+on `main` and nothing else may write it. It is listed only once installed: a bypass
+naming an actor the forge cannot resolve fails the whole payload, not just that entry.
+Its blast radius is its own permissions — contents read and write, and no workflows
+scope, so the actor that can write the branch cannot rewrite what runs on it.
 
-**No tag ruleset.** Releases here are git tags consumed through `#semver:` ranges, so a
-`tag-protection` ruleset on `refs/tags/v*` is worth having — but the tags predate this
-file and making them immutable is a separate decision from protecting the branch.
+**`code_scanning`** — refuses a pull request that introduces a CodeQL error, or a
+security finding of medium or higher. It reads the analysis rather than a job, which is
+why the CodeQL jobs are not among the contexts above. Like a required context, it is
+applied only once the thing behind it can answer — after CodeQL has analysed `main` —
+or every pull request waits on an analysis that never comes.
+
+## `tags.json`
+
+A release here *is* a tag, consumed through `#semver:` ranges, so a tag that moved
+would hand a consumer different code under a version they had already resolved — and
+the one who already holds it is never told. `deletion`, `non_fast_forward` and
+`update`: the last is the one that matters, because advancing a tag to a descendant is
+a fast-forward and the first two say nothing about it. With all three a tag is
+create-once — the first push of a name is accepted and every later one refused. It
+covers the tags that predate it too.
+
+No bypass actor. The release creates tags and never moves them, so it needs nothing
+this ruleset withholds, and an actor listed here would be past `update` and `deletion`
+as readily as anything else.
 
 ## Why this repository is worth protecting
 

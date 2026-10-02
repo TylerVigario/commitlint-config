@@ -1,0 +1,35 @@
+# Dependency updates, for the two things that change under this repository: the
+# npm packages its tests run against, and the actions its workflows pin.
+#
+# Every npm dependency here is a devDependency -- the package has no runtime
+# dependencies, and the parser preset is a peer the consumer chooses. A bump
+# changes what the tests run against and nothing a consumer installs, so it is a
+# `chore`, which releases nothing. Actions are `ci`, for the same reason.
+#
+# Grouped for minor and patch only. A major is where the breakage lives, and in a
+# group a bump that is fine is held back by one that is not -- so a major arrives
+# on its own and can be refused on its own.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      development:
+        patterns: ['*']
+        update-types: [minor, patch]
+    commit-message:
+      prefix: chore
+      prefix-development: chore
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+        update-types: [minor, patch]
+    commit-message:
+      prefix: ci
