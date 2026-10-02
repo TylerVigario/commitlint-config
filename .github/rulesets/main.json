@@ -31,7 +31,9 @@
         "required_review_thread_resolution": false,
         "allowed_merge_methods": [
           "squash"
-        ]
+        ],
+        "require_extra_approval_for_unattributed_changes": true,
+        "required_reviewers": []
       }
     },
     {
@@ -54,6 +56,18 @@
           },
           {
             "context": "Consumer install resolves (windows)"
+          }
+        ]
+      }
+    },
+    {
+      "type": "code_scanning",
+      "parameters": {
+        "code_scanning_tools": [
+          {
+            "tool": "CodeQL",
+            "alerts_threshold": "errors",
+            "security_alerts_threshold": "medium_or_higher"
           }
         ]
       }
