@@ -1,0 +1,78 @@
+# The changelog, and the version it decides. git-cliff reads the commits since the
+# last tag; .github/workflows/release.yml runs it.
+
+[changelog]
+header = "# Changelog\n\n"
+body = """
+{% if version %}\
+## [{{ version | trim_start_matches(pat="v") }}](https://github.com/TylerVigario/commitlint-config/{% if previous.version %}compare/{{ previous.version }}...{{ version }}{% else %}releases/tag/{{ version }}{% endif %}) ({{ timestamp | date(format="%Y-%m-%d") }})
+
+{% else %}\
+## [Unreleased]
+
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}\
+### {{ group | striptags | trim }}
+
+{% for commit in commits %}\
+* {% if commit.scope %}**{{ commit.scope }}:** {% endif %}{% if commit.breaking %}[**breaking**] {% endif %}{{ commit.message | upper_first }}
+{% endfor %}
+{% endfor %}\
+"""
+trim = true
+render_always = true
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+split_commits = false
+# A commit marked breaking is never dropped, whatever its type: the `!` is the
+# author saying a consumer will notice, and the specification makes that a major
+# change on any type.
+protect_breaking_commits = true
+filter_commits = true
+topo_order = false
+sort_commits = "oldest"
+tag_pattern = "v[0-9].*"
+# The squash body is empty, so what a change means is in its pull request. The
+# `(#n)` the forge appends to every squash subject becomes the link to it.
+commit_preprocessors = [
+  { pattern = '\(#(\d+)\)', replace = "([#${1}](https://github.com/TylerVigario/commitlint-config/pull/${1}))" },
+]
+# WHAT REACHES A CONSUMER decides what appears and what bumps. `feat`, `fix`,
+# `revert`, `perf` and `refactor` change what index.mjs does or how; `build`
+# changes how the package is assembled and resolved -- `exports`, the peer range.
+# Those appear, and drive a bump.
+#
+# `ci`, `docs`, `test`, `chore` and `style` cannot change what a consumer runs, so
+# they neither appear nor bump, and a release of nothing but these is refused as
+# nothing to release. One list drives both: git-cliff computes the bump from these
+# same parsers, so a type cannot be in the changelog without also releasing.
+#
+# `chore` covers `chore(release)`, which keeps the release's own receipt out of
+# the changelog it writes, and the dependency bumps, which change only what the
+# tests run against.
+#
+# Case-insensitive, because the specification is (item 15) and so is index.mjs's
+# type rule: `Fix:` is a fix, and a case-sensitive parser would drop it from the
+# changelog and the version both.
+commit_parsers = [
+  { message = "(?i)^feat",     group = "<!-- 0 -->Features" },
+  { message = "(?i)^fix",      group = "<!-- 1 -->Bug Fixes" },
+  { message = "(?i)^revert",   group = "<!-- 1 -->Bug Fixes" },
+  { message = "(?i)^perf",     group = "<!-- 2 -->Performance" },
+  { message = "(?i)^refactor", group = "<!-- 3 -->Refactoring" },
+  { message = "(?i)^build",    group = "<!-- 4 -->Build & Packaging" },
+  { message = "(?i)^style",    skip = true },
+  { message = "(?i)^ci",       skip = true },
+  { message = "(?i)^docs",     skip = true },
+  { message = "(?i)^test",     skip = true },
+  { message = "(?i)^chore",    skip = true },
+]
+
+[bump]
+# Before 1.0 a feature bumps the minor version and so does a breaking change --
+# semver's own rule for major version zero, where anything may change.
+features_always_bump_minor = true
+breaking_always_bump_major = false
+initial_tag = "v0.1.0"
