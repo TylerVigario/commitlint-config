@@ -173,6 +173,32 @@ describe("what decides whether a message parses at all", () => {
   });
 });
 
+describe("what passes unchecked", () => {
+  // commitlint's default list passes these without running a rule. A revert's
+  // pull request is titled this way by GitHub's own button, and squashed under
+  // that title it reaches the default branch where no changelog tool can read it.
+  it("checks what commitlint would wave through", async () => {
+    await rejects('Revert "feat: add login"');
+    await rejects('Reapply "feat: add login"');
+    await rejects("Merge pull request #1 from someone/branch");
+    await rejects("Merged PR 12: a change");
+    await rejects("Automatic merge of a change");
+    await rejects("1.2.3");
+    await accepts("revert: feat: add login");
+  });
+
+  // What git writes on a branch, which a commit-msg hook meets every day and
+  // which never reaches the default branch under squash merging.
+  it("lets through what git writes on a branch", async () => {
+    await accepts("Merge branch 'main' into feat-x");
+    await accepts("Merge remote-tracking branch 'origin/main' into feat-x");
+    await accepts("Merge tag 'v1.0.0'");
+    await accepts("fixup! add login");
+    await accepts("squash! add login");
+    await accepts("amend! add login");
+  });
+});
+
 describe("what this config deliberately does NOT enforce", () => {
   // Style, by the argument in index.mjs: the specification says nothing about any
   // of it, and cocogitto — the other linter in the estate — has no equivalent, so
