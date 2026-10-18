@@ -16,6 +16,9 @@ name: Release
 #
 #   decide   read-only. Derives the version, refuses a tag that already exists,
 #            previews the entry in the run summary, and writes the changelog.
+#            The commits decide the step unless the run names one: a squash that
+#            landed under the wrong type cannot be retyped, and leaving 0.x is a
+#            decision no commit carries, since before 1.0 a break moves the minor.
 #   gate     ci.yml, called: nothing is released that a merge would refuse.
 #   publish  skipped on a dry run. Writes the record -- only if main is still the
 #            commit the gate passed, so what is tagged is what was tested -- then
@@ -59,11 +62,17 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
+      bump:
+        description: "The step from the last release: auto lets the commits decide; patch, minor or major overrides them"
+        type: choice
+        options: [auto, patch, minor, major]
+        default: auto
+        required: true
       dry-run:
-        description: "Derive, preview and gate; write nothing"
-        required: false
-        default: false
+        description: "Decide the version, preview the changelog and run the gate; write nothing"
         type: boolean
+        default: false
+        required: false
 
 concurrency:
   group: release
@@ -98,14 +107,28 @@ jobs:
       # the day.
       - run: npm ci --ignore-scripts
 
+      - name: Read the step asked for
+        id: step
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          case "$BUMP" in
+            auto | patch | minor | major) echo "bump=$BUMP" >> "$GITHUB_OUTPUT" ;;
+            *) echo "::error::'$BUMP' is not a step: auto, patch, minor or major"; exit 1 ;;
+          esac
+
       - name: Decide
         id: decide
+        # Inputs arrive through env, never interpolated into the script: `${{ }}`
+        # pastes a value in as source text before bash sees it.
+        env:
+          BUMP: ${{ steps.step.outputs.bump }}
         run: |
           set -euo pipefail
           # With nothing bump-worthy since the last tag, git-cliff answers with
-          # that tag, which exists -- so "nothing to release" and "already
-          # released" are the same branch below.
-          next=$(npx --no-install git-cliff --config cliff.toml --bumped-version 2>/dev/null)
+          # that tag, whatever step was asked for, and the tag exists -- so
+          # "nothing to release" and "already released" are the same branch below.
+          next=$(npx --no-install git-cliff --config cliff.toml --bumped-version --bump "$BUMP" 2>/dev/null)
           [ -n "$next" ] || { echo "::error::git-cliff derived no version"; exit 1; }
           if git ls-remote --exit-code --tags origin "refs/tags/$next" > /dev/null; then
             echo "mode=none" >> "$GITHUB_OUTPUT"
@@ -119,7 +142,7 @@ jobs:
           else
             mode=release
           fi
-          echo "next=$next mode=$mode"
+          echo "next=$next mode=$mode step=$BUMP"
           {
             echo "mode=$mode"
             echo "version=${next#v}"
