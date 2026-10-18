@@ -1,6 +1,6 @@
 {
   "name": "@tylervigario/commitlint-config",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Conventional Commits: feat and fix enforced as a floor, every other type a replaceable starter.",
   "keywords": [
     "commitlint",
