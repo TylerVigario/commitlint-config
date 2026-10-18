@@ -55,8 +55,8 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
-      # --ignore-scripts because there are none, and because a docs repository
-      # should never execute package lifecycle scripts in CI.
+      # --ignore-scripts because there are none, and because CI that only lints
+      # has no reason to run a dependency's install scripts.
       - run: npm ci --ignore-scripts
 
       - name: Run commitlint on the PR title
@@ -96,11 +96,6 @@ jobs:
           AFTER: ${{ github.event.after }}
         run: |
           set -euo pipefail
-          # A branch's first push reports an all-zero `before`, and a force-push
-          # can report one that is no longer reachable. Either way the range is
-          # unanswerable, so fall back to the single commit that arrived rather
-          # than failing on the lookup — a check that errors on its own inputs
-          # reports nothing about the record it exists to protect.
           # Three ways the range can be meaningless, and they look alike from inside
           # the job: an all-zero `before` on a branch's first push, a `before` whose
           # object is gone, and a `before` that still EXISTS but is no longer an
@@ -108,6 +103,10 @@ jobs:
           # dangerous one: the range resolves, nothing errors, and it expands to
           # every commit not shared between the two tips. Ancestry is the question,
           # not existence.
+          #
+          # In all three, lint the single commit that arrived rather than fail on
+          # the lookup: a check that errors on its own inputs reports nothing about
+          # the record it exists to protect.
           if [ "$BEFORE" = "0000000000000000000000000000000000000000" ] \
              || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null \
              || ! git merge-base --is-ancestor "$BEFORE" "$AFTER" 2>/dev/null; then
