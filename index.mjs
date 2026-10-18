@@ -38,8 +38,27 @@ const STARTER = [
   "refactor", "perf", "test", "revert",
 ];
 
+// What git writes on a branch, which never reaches the default branch under squash
+// merging: its merge commits, and the commits `--fixup`, `--squash` and
+// `--fixup=amend:` make. A commit-msg hook meets these every day, so they pass
+// unchecked.
+//
+// Everything else commitlint would wave through is checked. Its default list also
+// passes `Revert "…"` and `Reapply "…"`, the forge's merge messages, and a bare
+// version, and GitHub's own revert button titles its pull request `Revert "feat: x"`.
+// Squashed under that title, it lands on the default branch as a commit no
+// changelog tool can read: git-cliff and cocogitto both skip it, and the changelog
+// goes on listing the feature it removed. Its conventional form is `revert: feat: x`.
+const GIT_ON_A_BRANCH = [
+  /^Merge (branch|branches|remote-tracking branch|tag|commit) /,
+  /^(amend|fixup|squash)!/,
+];
+
 export default {
   parserPreset: PARSER_PRESET,
+
+  defaultIgnores: false,
+  ignores: GIT_ON_A_BRANCH.map((pattern) => (message) => pattern.test(message)),
 
   plugins: [
     {

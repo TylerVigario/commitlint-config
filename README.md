@@ -81,6 +81,22 @@ export default {
 };
 ```
 
+## What passes unchecked
+
+Only what git writes on a branch: its merge commits (`Merge branch 'main' into feat-x`)
+and the commits `--fixup`, `--squash` and `--fixup=amend:` make. A commit-msg hook meets
+these every day, and under squash merging none of them reaches the default branch.
+
+commitlint's own list passes more, and this config checks the rest. GitHub's revert
+button titles its pull request `Revert "feat: add login"`; squashed under that title it
+lands as a commit git-cliff and cocogitto both skip, and the changelog goes on listing
+the feature it removed. Here that title is refused, and `revert: feat: add login` is
+accepted. The same goes for `Reapply "…"`, the forge's merge messages and a bare version.
+
+A pull request titled `Merge branch …` or `fixup! …` still passes. Nobody titles one that
+way, and it is the price of a hook that works. A repository that wants commitlint's
+whole list back sets `defaultIgnores: true` in its own config.
+
 ## Why the set beyond the two is open
 
 The specification defines behaviour for `feat` and `fix`, says of everything else
