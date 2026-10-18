@@ -1,11 +1,11 @@
-# @vts/commitlint-config
+# @tylervigario/commitlint-config
 
 Conventional Commits, without `@commitlint/config-conventional`'s house style — and
 with a type enum that obeys the specification.
 
 ```json
 {
-  "extends": ["@vts/commitlint-config"]
+  "extends": ["@tylervigario/commitlint-config"]
 }
 ```
 
@@ -13,7 +13,7 @@ Three lines of JSON is the whole consumer config — the rules and the plugin li
 
 ### On the shorthand
 
-`extends: ["@vts"]` also works. commitlint appends `commitlint-config` to a bare scope,
+`extends: ["@tylervigario"]` also works. commitlint appends `commitlint-config` to a bare scope,
 the same way eslint does, so it resolves to this package. Both forms are asserted by the
 `Consumer install resolves` job, against the packed tarball installed into a scratch
 project — so this paragraph fails CI rather than going quietly stale.
@@ -23,8 +23,8 @@ shorter one. commitlint tries the modern prefix first and a **legacy** one last,
 the package is simply *not installed*, the shorthand reports the candidate it gave up on:
 
 ```
-extends: ["@vts"]                     Cannot find module "@vts/conventional-changelog-lint-config"
-extends: ["@vts/commitlint-config"]   Cannot find module "@vts/commitlint-config"
+extends: ["@tylervigario"]                     Cannot find module "@tylervigario/conventional-changelog-lint-config"
+extends: ["@tylervigario/commitlint-config"]   Cannot find module "@tylervigario/commitlint-config"
 ```
 
 The first names a package that has never existed, and reads as though the shorthand were
@@ -40,7 +40,7 @@ the tags:
 "devDependencies": {
   "@commitlint/cli": "^21",
   "conventional-changelog-conventionalcommits": "^10",
-  "@vts/commitlint-config": "github:TylerVigario/commitlint-config#semver:^0.3.0"
+  "@tylervigario/commitlint-config": "github:TylerVigario/commitlint-config#semver:^0.4.0"
 }
 ```
 
@@ -66,17 +66,17 @@ remaining nine ship as a default. A repository may swap the whole set for types 
 
 ```js
 // inherit the starter
-export default { extends: ["@vts/commitlint-config"] };
+export default { extends: ["@tylervigario/commitlint-config"] };
 
 // replace it — feat and fix survive regardless
 export default {
-  extends: ["@vts/commitlint-config"],
+  extends: ["@tylervigario/commitlint-config"],
   rules: { "type-enum-any-case": [2, "always", ["deploy", "migrate"]] },
 };
 
 // the floor and nothing else
 export default {
-  extends: ["@vts/commitlint-config"],
+  extends: ["@tylervigario/commitlint-config"],
   rules: { "type-enum-any-case": [2, "always", []] },
 };
 ```
@@ -136,7 +136,7 @@ fails in another, which is not a standard.
 one fact explains everything below.
 
 Installed normally — from git, or from a tarball — this package lands as a real directory
-at `node_modules/@vts/commitlint-config`. Resolving the parser preset from there walks up
+at `node_modules/@tylervigario/commitlint-config`. Resolving the parser preset from there walks up
 into the consumer's `node_modules` and finds it. That is why
 `conventional-changelog-conventionalcommits` is a **peer** dependency: the consumer already
 has it, and the consumer picks the version.
@@ -154,8 +154,8 @@ Error: Cannot find module "conventional-changelog-conventionalcommits"
 Nothing is wrong with the package. To test it the way it ships:
 
 ```bash
-cd commitlint-config && npm pack          # → vts-commitlint-config-0.3.0.tgz
-cd ../consumer && npm install ../commitlint-config/vts-commitlint-config-0.3.0.tgz
+cd commitlint-config && npm pack          # → tylervigario-commitlint-config-0.4.0.tgz
+cd ../consumer && npm install ../commitlint-config/tylervigario-commitlint-config-0.4.0.tgz
 ```
 
 The same applies to `npm link`, for the same reason.
@@ -164,7 +164,7 @@ The same applies to `npm link`, for the same reason.
 consumer *authoring* a plugin needs a `.js` config — but inheriting one does not, because
 the functions live in this package. `.commitlintrc.json` with three lines works.
 
-**Pin a tag, not a branch.** `#semver:^0.3.0` resolves against this repository's tags and
+**Pin a tag, not a branch.** `#semver:^0.4.0` resolves against this repository's tags and
 `package-lock.json` records the resolved commit, so consumers upgrade deliberately rather
 than drifting when `main` moves.
 
@@ -180,7 +180,7 @@ records that version in `package.json` and its entry in
 [`CHANGELOG.md`](CHANGELOG.md). The version comes from the commits since the last
 tag: `feat` bumps the minor version, `fix` the patch, and before 1.0 a breaking
 change bumps the minor as well. Tags are create-once — none is moved or deleted —
-so the commit `#semver:^0.3.0` resolves to today is the one it resolves to for
+so the commit `#semver:^0.4.0` resolves to today is the one it resolves to for
 ever.
 
 ## Licence

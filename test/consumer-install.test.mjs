@@ -14,7 +14,7 @@
 //
 // Both `extends` forms are asserted. The shorthand is the one a consumer is more
 // likely to reach for AND the one whose failure mode reads wrong — a missing
-// package reports `@vts/conventional-changelog-lint-config`, the last candidate
+// package reports `@tylervigario/conventional-changelog-lint-config`, the last candidate
 // commitlint tries, which names something that has never existed. The README
 // documents that; this is what keeps the documentation true.
 //
@@ -85,7 +85,7 @@ function lint(message, extendsName) {
   });
 }
 
-for (const name of ["@vts/commitlint-config", "@vts"]) {
+for (const name of ["@tylervigario/commitlint-config", "@tylervigario"]) {
   describe(`extends: ["${name}"]`, () => {
     it("resolves and accepts a conforming subject", async () => {
       assert.equal(await lint("feat: a conforming subject", name), 0);
