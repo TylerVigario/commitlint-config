@@ -15,12 +15,18 @@ name: Release
 # everything that can fail happens before anything that cannot be taken back:
 #
 #   decide   read-only. Derives the version, refuses a tag that already exists,
-#            and previews the entry in the run summary.
+#            previews the entry in the run summary, and writes the changelog.
 #   gate     ci.yml, called: nothing is released that a merge would refuse.
 #   publish  skipped on a dry run. Writes the record -- only if main is still the
 #            commit the gate passed, so what is tagged is what was tested -- then
 #            makes the tag on it. The tag can refuse only for a name that already
 #            exists, and decide has already established that it does not.
+#
+# NO PACKAGE CODE RUNS WHERE THE TOKEN DOES. git-cliff is an npm package, and the
+# App's token writes main past its ruleset and makes tags nobody can move. So
+# git-cliff runs in decide, which holds no secret, and hands publish the changelog
+# it wrote: a file read, not code run. publish runs GitHub's own actions, npm's
+# version bump, jq and gh, and nothing a dependency supplies.
 #
 # A run that stops between the two writes is finished by dispatching again:
 # decide finds main's head is the record and the tag absent, and makes the tag
@@ -85,6 +91,12 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
+          cache: npm
+
+      # git-cliff is a devDependency, so the lockfile pins it by version and hash and
+      # Dependabot bumps it with the rest. npx would fetch whatever 2.x npm served on
+      # the day.
+      - run: npm ci --ignore-scripts
 
       - name: Decide
         id: decide
@@ -93,7 +105,7 @@ jobs:
           # With nothing bump-worthy since the last tag, git-cliff answers with
           # that tag, which exists -- so "nothing to release" and "already
           # released" are the same branch below.
-          next=$(npx --yes git-cliff@2 --config cliff.toml --bumped-version 2>/dev/null)
+          next=$(npx --no-install git-cliff --config cliff.toml --bumped-version 2>/dev/null)
           [ -n "$next" ] || { echo "::error::git-cliff derived no version"; exit 1; }
           if git ls-remote --exit-code --tags origin "refs/tags/$next" > /dev/null; then
             echo "mode=none" >> "$GITHUB_OUTPUT"
@@ -122,8 +134,24 @@ jobs:
           {
             echo "## $TAG, as it will be recorded"
             echo
-            npx --yes git-cliff@2 --config cliff.toml --unreleased --tag "$TAG" --strip all
+            npx --no-install git-cliff --config cliff.toml --unreleased --tag "$TAG" --strip all
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Write the changelog
+        if: steps.decide.outputs.mode == 'release'
+        env:
+          TAG: ${{ steps.decide.outputs.tag }}
+        run: npx --no-install git-cliff --config cliff.toml --tag "$TAG" --output CHANGELOG.md
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.decide.outputs.mode == 'release'
+        with:
+          name: changelog
+          path: CHANGELOG.md
+          if-no-files-found: error
+          # A re-run of this job replaces the file rather than failing on the name.
+          overwrite: true
+          retention-days: 1
 
   gate:
     name: Gate
@@ -147,6 +175,28 @@ jobs:
     permissions:
       contents: read
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      # decide's changelog, over the checkout's.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: needs.decide.outputs.mode == 'release'
+        with:
+          name: changelog
+
+      - name: Bump the version
+        if: needs.decide.outputs.mode == 'release'
+        env:
+          VERSION: ${{ needs.decide.outputs.version }}
+        run: npm version "$VERSION" --no-git-tag-version --allow-same-version > /dev/null
+
+      # Minted last, so nothing before it in this job ran while it existed.
       - name: Mint a token for the release App
         id: app-token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
@@ -156,16 +206,6 @@ jobs:
           # The token can do what this job does, write the record and its tag, and nothing
           # else the App is installed with.
           permission-contents: write
-
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.sha }}
-          fetch-depth: 0
-          persist-credentials: false
-
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version-file: .nvmrc
 
       - name: Write the record to main
         id: record
@@ -181,11 +221,8 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           TAG: ${{ needs.decide.outputs.tag }}
-          VERSION: ${{ needs.decide.outputs.version }}
         run: |
           set -euo pipefail
-          npm version "$VERSION" --no-git-tag-version --allow-same-version > /dev/null
-          npx --yes git-cliff@2 --config cliff.toml --tag "$TAG" --output CHANGELOG.md
           jq -n \
             --arg repo "$GITHUB_REPOSITORY" \
             --arg head "$GITHUB_SHA" \
