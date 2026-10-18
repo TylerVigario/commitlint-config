@@ -69,7 +69,7 @@ before(() => {
   // Naming it explicitly — the obvious way to write this — made the suite pass with
   // peerDependencies deleted entirely. Measured, and the reason it is written this
   // way round.
-  run(NPM, ["install", "--no-audit", "--no-fund", `./${tarball}`, "@commitlint/cli@^20"], work);
+  run(NPM, ["install", "--no-audit", "--no-fund", `./${tarball}`, "@commitlint/cli@^21"], work);
 }, { timeout: 180_000 });
 
 function lint(message, extendsName) {
