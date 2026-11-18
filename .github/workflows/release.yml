@@ -69,11 +69,12 @@ name: Release
 #   5. Immutable releases on, so a published release's assets cannot change.
 #   6. On npmjs.com, a trusted publisher for @tylervigario/commitlint-config:
 #      GitHub Actions, TylerVigario/commitlint-config, workflow `release.yml`,
-#      environment `release`; and publishing access that disallows tokens. npm
-#      configures it from the package's own settings, so the first version is
-#      published with NPM_TOKEN, a granular token for the @tylervigario scope that
-#      expires within days, held as a `release` environment secret for that one
-#      run and deleted after.
+#      environment `release`, allowed to publish directly; and publishing access
+#      that disallows tokens. npm sets a trusted publisher from the package's own
+#      settings, so the package was brought into being by staging it by hand
+#      (`npm stage publish`, then `npm stage reject` with 2FA), which leaves only
+#      npm's placeholder, 0.0.0-stage. No token is ever made. A trusted publisher
+#      that sees no publish within two days of being added expires.
 #
 # A dry run needs none of that: decide, the gate and build run, and the entry goes
 # to the run summary. Nothing is written anywhere.
@@ -380,11 +381,11 @@ jobs:
           TARBALL: ${{ needs.build.outputs.tarball }}
           INTEGRITY: ${{ needs.build.outputs.integrity }}
           VERSION: ${{ needs.decide.outputs.version }}
-          # Empty once the trusted publisher is configured; npm tries OIDC first.
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
-          published=$(npm view "$PACKAGE@$VERSION" dist.integrity 2> /dev/null || true)
+          # Asked of the registry directly, with no credential: 404 is "not yet".
+          published=$(curl -fsS "https://registry.npmjs.org/${PACKAGE/\//%2f}/$VERSION" 2> /dev/null \
+            | jq -r '.dist.integrity // empty' || true)
           if [ -z "$published" ]; then
             npm publish "$RUNNER_TEMP/release/$TARBALL" --access public --provenance --ignore-scripts
             echo "published $PACKAGE@$VERSION"
