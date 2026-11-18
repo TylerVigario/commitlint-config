@@ -11,6 +11,18 @@ Expect an acknowledgement within a few days. This is a one-maintainer project
 run alongside other work, so a fix may take longer than an acknowledgement — you
 will be told which is happening.
 
+## Which releases receive a fix
+
+The latest release only. A release is a tag consumed through a `#semver:` range, and a
+fix ships as the next release, a patch where the fix allows, which a consumer's range
+picks up on its next install. An older release is never patched in place: its tag does
+not move.
+
+## Where a fix is announced
+
+In a security advisory on this repository, published with the release that carries the
+fix. The fix is also in that release's changelog.
+
 ## What is in scope
 
 `index.mjs` is loaded and run by commitlint in every repository that extends it,
