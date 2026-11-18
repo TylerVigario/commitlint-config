@@ -128,6 +128,30 @@ slash can be chosen to sort above every real version. The release reads its last
 from these tags, so one it did not make would steer the next release, and under
 `tags.json` it could never be removed.
 
+## The Actions policy, `workflow-lockfile`
+
+Not a ruleset, and not in a file, because the API can read it and cannot write it: an
+Actions policy, set by hand in Settings → Actions → Policies.
+
+| field | value |
+| --- | --- |
+| name | `workflow-lockfile` |
+| protection | Require lockfile (`require_lockfile`) |
+| target | all workflows (`~ALL`) |
+| status | Active |
+
+It refuses to start any workflow `.github/workflows/actions.lock` does not record, one
+that uses no action included. Read it back with:
+
+```bash
+gh api repos/TylerVigario/commitlint-config/actions/policies
+```
+
+A read says it is configured, not that it bites. It was proven by an attempt: a workflow
+pushed on a scratch branch without being locked ended in a startup failure with no job,
+while the recorded release ran to the end. The refused run names nothing; the
+`Lockfile verifies` check is what says which workflow is missing.
+
 ## Why this repository is worth protecting
 
 It defines what a conforming commit is for every repository that consumes it. A bad
