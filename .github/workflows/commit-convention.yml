@@ -1,6 +1,6 @@
 name: Commit convention
 
-# Both ends of the convention, against one config — the repository standard's rule 4.
+# Both ends of the convention, against one config.
 #
 #   Validate PR title   pull_request.  A gate: it can block the merge.
 #   Lint main           push.          A notification: the commit already exists.
@@ -19,7 +19,7 @@ name: Commit convention
 #
 # Lint main MUST NOT become a required status check. It cannot report on a
 # pull_request event, so requiring it would leave every PR waiting on a context
-# that will never arrive — rule 4 names that trap explicitly.
+# that will never arrive.
 #
 # Both jobs lint this repository against its OWN config. index.mjs is the package
 # and the configuration at once, so a change that breaks conforming commits fails

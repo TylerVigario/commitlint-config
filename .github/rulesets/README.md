@@ -68,6 +68,11 @@ the change, tighten it again, then verify against the rules endpoint.
 `pull_request` event, so requiring it would leave every pull request waiting on a context
 that never arrives.
 
+**`strict_required_status_checks_policy: true`** — a pull request is up to date with `main`
+before it merges. Its checks ran against `main` as it stood when they ran, so a merge made
+after `main` moved would land a combination nothing checked. Behind, it takes in the new
+commits and passes again, and the commit that lands is the one the checks passed.
+
 **`bypass_actors`** — one App or none, never an actor *type*. An actor-type exemption
 is inherited by anything authenticating as that actor: on a single-owner repository
 "repository admin" exempts the owner *and* every automation acting on the owner's
