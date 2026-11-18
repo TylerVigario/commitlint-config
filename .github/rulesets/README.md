@@ -1,8 +1,8 @@
 # Rulesets
 
-`main.json` is the branch protection payload for this repository, and `tags.json`
-the tag protection. They are committed
-because a ruleset is applied state that lives only on GitHub: it vanishes silently on
+Four payloads protect this repository: `main.json` and `main-history.json` the default
+branch, `tags.json` every tag, and `version-tags.json` the tags that name a version. They
+are committed because a ruleset is applied state that lives only on GitHub: it vanishes silently on
 repository recreate, rename or fork, and nothing in a clone reveals it is gone.
 
 The file is the source of truth. Apply it, do not hand-configure:
@@ -37,13 +37,6 @@ approval count adds nothing where there is one reviewer.
 parent buys nothing merging into linear history; rebase is excluded because it replays
 branch commits onto main verbatim, so a check validating the pull request title never
 sees them.
-
-**`deletion`, `non_fast_forward`** — the branch cannot be removed or rewritten.
-
-**`required_linear_history`** — not the same lever as disabling merge commits in the
-repository settings. Merge methods are settings: one API call re-enables them, touching
-no ruleset and leaving nothing in the ruleset history. The rule holds the shape against
-a setting drifting back.
 
 **`required_status_checks`** — one context per assertion, no aggregate:
 
@@ -83,13 +76,28 @@ installed on this repository alone, because a release records its version and ch
 on `main` and nothing else may write it. It is listed only once installed: a bypass
 naming an actor the forge cannot resolve fails the whole payload, not just that entry.
 Its blast radius is its own permissions — contents read and write, and no workflows
-scope, so the actor that can write the branch cannot rewrite what runs on it.
+scope, so the actor that can write the branch cannot rewrite what runs on it. It is
+listed here and on `version-tag-protection`, and on nothing else.
 
 **`code_scanning`** — refuses a pull request that introduces a CodeQL error, or a
 security finding of medium or higher. It reads the analysis rather than a job, which is
 why the CodeQL jobs are not among the contexts above. Like a required context, it is
 applied only once the thing behind it can answer — after CodeQL has analysed `main` —
 or every pull request waits on an analysis that never comes.
+
+## `main-history.json`
+
+What no change may do to `main`, in a ruleset of its own because a bypass reaches every
+rule in the ruleset that lists it. Beside the release's exemption in `main-protection`
+these would let the App delete the branch or rewrite it; here they hold against
+everyone, and no bypass actor is ever listed.
+
+**`deletion`, `non_fast_forward`** — the branch cannot be removed or rewritten.
+
+**`required_linear_history`** — not the same lever as disabling merge commits in the
+repository settings. Merge methods are settings: one API call re-enables them, touching
+no ruleset and leaving nothing in the ruleset history. The rule holds the shape against
+a setting drifting back.
 
 ## `tags.json`
 
@@ -104,6 +112,20 @@ covers the tags that predate it too.
 No bypass actor. The release creates tags and never moves them, so it needs nothing
 this ruleset withholds, and an actor listed here would be past `update` and `deletion`
 as readily as anything else.
+
+**`refs/tags/**/*`** — every tag. A ruleset matches a ref as a path, and `*` stops at a
+slash, so `refs/tags/v*` left any tag with a slash in its name free to be moved or
+deleted. `**/*` matches at every depth, the top one included.
+
+## `version-tags.json`
+
+Only the release names a version. `creation` on `refs/tags/v*` and `refs/tags/v*/**/*`,
+with the release's App its one bypass actor, so a version tag made by anyone else is
+refused while any other tag stays open to create. The two patterns cover what the other
+misses: `v*` alone leaves `v9/x`, and `v*/**/*` alone leaves `v9.0.0`, and a name with a
+slash can be chosen to sort above every real version. The release reads its last version
+from these tags, so one it did not make would steer the next release, and under
+`tags.json` it could never be removed.
 
 ## Why this repository is worth protecting
 
