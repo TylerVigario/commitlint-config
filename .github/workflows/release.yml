@@ -37,7 +37,7 @@ name: Release
 #
 # WHY AN APP. main takes no direct push, and the record writes main. The one
 # exemption is a GitHub App installed on this repository alone, the single bypass
-# actor on main-protection. Its credentials are environment secrets on `release`,
+# actor on main-protection and version-tag-protection. Its credentials are environment secrets on `release`,
 # not repository secrets, and the environment admits protected branches only, so
 # a workflow on any other branch cannot read them however it is changed. There is
 # no required reviewer: with one maintainer it would confirm only what that
@@ -53,8 +53,8 @@ name: Release
 #      no required reviewer, holding RELEASE_APP_CLIENT_ID (the Iv23li... Client
 #      ID, not the numeric App ID) and RELEASE_APP_PRIVATE_KEY as environment
 #      secrets.
-#   4. The App added to bypass_actors in .github/rulesets/main.json by its numeric
-#      App ID, and that payload re-applied.
+#   4. The App added to bypass_actors in .github/rulesets/main.json and
+#      version-tags.json by its numeric App ID, and both payloads re-applied.
 #
 # A dry run needs none of that: decide and the gate run, and the entry goes to the
 # run summary. Nothing is written anywhere.
