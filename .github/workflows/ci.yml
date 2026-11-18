@@ -40,10 +40,8 @@ name: CI
 # workflow actions.lock does not record, and the refused run ends as a startup
 # failure that names nothing. This job names it: an unrecorded workflow, an action
 # missing from the lockfile, or a locked commit no longer reachable upstream. Its
-# tool is fetched at an exact version and passes only on its recorded digest and
-# an attestation from its own release workflow, read from what the verifier
-# reports rather than from its exit status, which is the same whether it checked
-# or not.
+# tool is installed at an exact version, from an immutable release, so the version
+# alone fixes the bytes.
 
 on:
   pull_request:
@@ -107,27 +105,12 @@ jobs:
     name: Lockfile verifies
     runs-on: ubuntu-latest
     env:
-      # gh-actions-lock, linux-amd64, at the digest GitHub recorded for the asset.
-      LOCK_VERSION: v0.4.1
-      LOCK_SHA256: 39deb2fe714dbf74b073d8245fc7f3d50cd0eee18d5c0900e9e849ae933ae17e
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
-      - name: Fetch the lock tool, checked by digest and attestation
-        run: |
-          set -euo pipefail
-          dir="$RUNNER_TEMP/gh-actions-lock"
-          gh release download "$LOCK_VERSION" --repo github/gh-actions-lock --pattern linux-amd64 --dir "$dir"
-          echo "$LOCK_SHA256  $dir/linux-amd64" | sha256sum --check --strict
-          gh attestation verify "$dir/linux-amd64" --repo github/gh-actions-lock \
-            --signer-workflow github/gh-actions-lock/.github/workflows/release.yml \
-            --format json > "$dir/attestation.json"
-          jq -e --arg d "$LOCK_SHA256" --arg ref "refs/tags/$LOCK_VERSION" \
-            'any(.[]; .verificationResult.signature.certificate.sourceRepositoryRef == $ref
-              and any(.verificationResult.statement.subject[]; .digest.sha256 == $d))' \
-            "$dir/attestation.json" > /dev/null
-          chmod +x "$dir/linux-amd64"
+      - name: Install the lock tool
+        run: gh extension install github/gh-actions-lock --pin v0.4.1
       - name: Verify the lockfile
-        run: '"$RUNNER_TEMP/gh-actions-lock/linux-amd64" --verify'
+        run: gh actions-lock --verify
