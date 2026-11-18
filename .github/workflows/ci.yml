@@ -6,8 +6,10 @@ name: CI
 #                              config on disk.
 #   Consumer install resolves  the same package, packed and installed, reached by
 #                              the name a consumer writes.
+#   Lockfile verifies          every workflow is recorded in actions.lock, and each
+#                              locked commit still verifies upstream.
 #
-# Each runs on linux AND windows, so four contexts. The package is plain JavaScript
+# The first two run on linux AND windows, so four contexts. The package is plain JavaScript
 # and platform-independent; the TESTS are not — they spawn npm and a CLI, and every
 # one of those is where a platform assumption hides. The suites carried three such
 # assumptions when written, so running them on one platform was measuring the
@@ -33,6 +35,15 @@ name: CI
 # scoped-name resolution entirely. Those break every consumer at once and cannot
 # fail against a path. Both were proven to be live by deleting them and watching
 # the suite go red; the notes are in the test file.
+#
+# WHY THE LOCKFILE HAS A JOB. The workflow-lockfile policy refuses to start any
+# workflow actions.lock does not record, and the refused run ends as a startup
+# failure that names nothing. This job names it: an unrecorded workflow, an action
+# missing from the lockfile, or a locked commit no longer reachable upstream. Its
+# tool is fetched at an exact version and passes only on its recorded digest and
+# an attestation from its own release workflow, read from what the verifier
+# reports rather than from its exit status, which is the same whether it checked
+# or not.
 
 on:
   pull_request:
@@ -60,10 +71,10 @@ jobs:
           - { os: ubuntu-latest, label: linux }
           - { os: windows-latest, label: windows }
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -80,10 +91,10 @@ jobs:
           - { os: ubuntu-latest, label: linux }
           - { os: windows-latest, label: windows }
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version-file: .nvmrc
           # No cache. This job's whole point is a cold install of the packed
@@ -91,3 +102,32 @@ jobs:
           # missing dependency declaration still resolves.
       - name: Pack, install and lint through the installed package
         run: node --test test/consumer-install.test.mjs
+
+  lockfile:
+    name: Lockfile verifies
+    runs-on: ubuntu-latest
+    env:
+      # gh-actions-lock, linux-amd64, at the digest GitHub recorded for the asset.
+      LOCK_VERSION: v0.4.1
+      LOCK_SHA256: 39deb2fe714dbf74b073d8245fc7f3d50cd0eee18d5c0900e9e849ae933ae17e
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Fetch the lock tool, checked by digest and attestation
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/gh-actions-lock"
+          gh release download "$LOCK_VERSION" --repo github/gh-actions-lock --pattern linux-amd64 --dir "$dir"
+          echo "$LOCK_SHA256  $dir/linux-amd64" | sha256sum --check --strict
+          gh attestation verify "$dir/linux-amd64" --repo github/gh-actions-lock \
+            --signer-workflow github/gh-actions-lock/.github/workflows/release.yml \
+            --format json > "$dir/attestation.json"
+          jq -e --arg d "$LOCK_SHA256" --arg ref "refs/tags/$LOCK_VERSION" \
+            'any(.[]; .verificationResult.signature.certificate.sourceRepositoryRef == $ref
+              and any(.verificationResult.statement.subject[]; .digest.sha256 == $d))' \
+            "$dir/attestation.json" > /dev/null
+          chmod +x "$dir/linux-amd64"
+      - name: Verify the lockfile
+        run: '"$RUNNER_TEMP/gh-actions-lock/linux-amd64" --verify'
