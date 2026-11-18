@@ -73,7 +73,7 @@ jobs:
           persist-credentials: false
 
       - name: Initialise CodeQL
-        uses: github/codeql-action/init@v4.39.1
+        uses: github/codeql-action/init@v4.39.3
         with:
           languages: ${{ matrix.language }}
           # Both extractors read source directly; neither needs a build.
@@ -84,6 +84,6 @@ jobs:
           queries: security-extended
 
       - name: Analyse
-        uses: github/codeql-action/analyze@v4.39.1
+        uses: github/codeql-action/analyze@v4.39.3
         with:
           category: /language:${{ matrix.language }}
