@@ -108,6 +108,8 @@ jobs:
   decide:
     name: Decide the version
     runs-on: ubuntu-latest
+    # A hung job fails here rather than running for six hours.
+    timeout-minutes: 10
     outputs:
       mode: ${{ steps.decide.outputs.mode }}
       version: ${{ steps.decide.outputs.version }}
@@ -229,6 +231,7 @@ jobs:
       ((needs.decide.outputs.mode == 'release' && needs.gate.result == 'success') ||
        needs.decide.outputs.mode == 'finish')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       tarball: ${{ steps.pack.outputs.tarball }}
       sha256: ${{ steps.pack.outputs.sha256 }}
@@ -296,6 +299,7 @@ jobs:
     needs: [decide, build]
     if: always() && !inputs.dry-run && needs.build.result == 'success'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: release
     permissions:
       contents: read
