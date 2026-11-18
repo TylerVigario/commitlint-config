@@ -52,7 +52,11 @@ in this checkout. The README's *Packaging* section has the detail.
   clause of the contract in `index.mjs` has an assertion in
   `test/config-behaves.test.mjs`; a new clause without one can be rewritten later
   without anything noticing.
-- **Every action is pinned to a full commit SHA**, with the version in a
-  comment. The repository refuses to run an unpinned one.
+- **Every workflow is recorded in `.github/workflows/actions.lock`**, which holds
+  the commit each action resolves to. A workflow added or changed is locked in the
+  same commit, with GitHub's `gh actions-lock` extension, and actions are named by
+  their release tag, as the tool writes them. The repository refuses to start a
+  workflow the lockfile does not record, and the `Lockfile verifies` check names
+  what is missing.
 - **Releases are not made by pull request.** The Release workflow records the
   version and tags it; see the README's *Releases* section.

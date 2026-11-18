@@ -47,6 +47,7 @@ sees them.
 | `Config behaves (windows)` | `ci.yml` | the same, on the platform where the harness assumptions hide |
 | `Consumer install resolves (linux)` | `ci.yml` | the packed package, installed, reached by the name a consumer writes |
 | `Consumer install resolves (windows)` | `ci.yml` | the same, on the platform where the harness assumptions hide |
+| `Lockfile verifies` | `ci.yml` | every workflow is recorded in `actions.lock`, and each locked commit verifies upstream |
 
 These are **job names**, taken from each job's `name:` field. The two `ci.yml` jobs
 run under a matrix, and a matrix *suffixes* the job name — so `name:` is set

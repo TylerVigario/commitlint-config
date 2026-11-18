@@ -53,6 +53,9 @@
           },
           {
             "context": "Consumer install resolves (windows)"
+          },
+          {
+            "context": "Lockfile verifies"
           }
         ]
       }

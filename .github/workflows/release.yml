@@ -114,14 +114,14 @@ jobs:
       tag: ${{ steps.decide.outputs.tag }}
       source: ${{ steps.decide.outputs.source }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7.0.1
         with:
           # git-cliff walks back to the previous tag. A shallow clone computes
           # the wrong version silently rather than failing.
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -201,7 +201,7 @@ jobs:
             cat "$RUNNER_TEMP/decided/notes.md"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - uses: actions/upload-artifact@v7.0.2
         if: steps.decide.outputs.mode != 'none'
         with:
           name: decided
@@ -235,18 +235,18 @@ jobs:
       integrity: ${{ steps.pack.outputs.integrity }}
       tree: ${{ steps.pack.outputs.tree }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ needs.decide.outputs.source }}
           persist-credentials: false
 
       # The Node and so the npm that pack the tarball are the ones .nvmrc names:
       # npm pack is byte for byte repeatable only by the same npm.
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version-file: .nvmrc
 
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      - uses: actions/download-artifact@v8.0.2
         with:
           name: decided
           path: ${{ runner.temp }}/decided
@@ -283,7 +283,7 @@ jobs:
           cp "$RUNNER_TEMP/decided/notes.md" "$RUNNER_TEMP/release/"
           cat "$GITHUB_OUTPUT"
 
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: release
           path: ${{ runner.temp }}/release/
@@ -303,14 +303,14 @@ jobs:
       attestations: write
       artifact-metadata: write
     steps:
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: actions/setup-node@v7.1.0
         with:
           # No checkout here, so the version is named rather than read from .nvmrc.
           # Trusted publishing needs npm 11.5.1 or later; Node 24.22.0 ships 11.19.1.
           node-version: 24.22.0
           registry-url: https://registry.npmjs.org
 
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      - uses: actions/download-artifact@v8.0.2
         with:
           name: release
           path: ${{ runner.temp }}/release
@@ -325,7 +325,7 @@ jobs:
 
       - name: Mint a token for the release App
         id: app-token
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        uses: actions/create-github-app-token@v3.3.0
         with:
           client-id: ${{ secrets.RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
@@ -432,7 +432,7 @@ jobs:
 
       - name: Attest the tarball
         id: attest
-        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        uses: actions/attest@v4.2.2
         with:
           subject-path: ${{ runner.temp }}/release/${{ needs.build.outputs.tarball }}
 
