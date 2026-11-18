@@ -13,10 +13,9 @@ will be told which is happening.
 
 ## Which releases receive a fix
 
-The latest release only. A release is a tag consumed through a `#semver:` range, and a
-fix ships as the next release, a patch where the fix allows, which a consumer's range
-picks up on its next install. An older release is never patched in place: its tag does
-not move.
+The latest release only. A fix ships as the next version on npm, a patch where the fix
+allows, which a consumer's caret range picks up on its next install. A published version
+is never replaced, and its tag does not move.
 
 ## Where a fix is announced
 

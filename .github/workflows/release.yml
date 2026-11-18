@@ -1,51 +1,58 @@
 name: Release
 
 # One manual run releases this package: git-cliff derives the next version from
-# the commits since the last tag, CI runs as the gate, the version and the
-# changelog are recorded on main, and the tag is made on that record.
+# the commits since the last tag, CI runs as the gate, the package is published to
+# npm, and only then are the version and the changelog recorded on main and tagged,
+# and a GitHub release carries the same tarball and its attestation.
 #
-# A RELEASE IS A TAG. Consumers install from git with a `#semver:` range, which
-# npm resolves against this repository's tags and installs from the tagged tree.
-# So the tagged tree is the artifact: it has to carry the version in package.json
-# and the changelog, which is why the record comes before the tag here rather than
-# after it. There is no GitHub release and nothing attached to one -- the tag is
-# the whole of what a consumer reads, and the tag ruleset makes it create-once.
+# THE ARTIFACT IS THE TARBALL. Consumers install @tylervigario/commitlint-config
+# from npm. The tarball is packed once, in a job that holds no credential, from
+# the commit the gate passed with the version and the changelog written in, and
+# that one file is what npm and the GitHub release both receive.
 #
-# THE ORDER IS THE POINT. Nothing may fail halfway and leave a halfway state, so
-# everything that can fail happens before anything that cannot be taken back:
+# THE ORDER IS THE POINT. Publication is the step that cannot be taken back, so
+# nothing announces a release before it exists:
 #
-#   decide   read-only. Derives the version, refuses a tag that already exists,
-#            previews the entry in the run summary, and writes the changelog.
-#            The commits decide the step unless the run names one: a squash that
-#            landed under the wrong type cannot be retyped, and leaving 0.x is a
-#            decision no commit carries, since before 1.0 a break moves the minor.
+#   decide   read-only. Derives the version, previews the entry in the run summary,
+#            and writes the changelog. The commits decide the step unless the run
+#            names one: a squash that landed under the wrong type cannot be retyped,
+#            and leaving 0.x is a decision no commit carries, since before 1.0 a
+#            break moves the minor. It also finds a release left half-done.
 #   gate     ci.yml, called: nothing is released that a merge would refuse.
-#   publish  skipped on a dry run. Writes the record -- only if main is still the
-#            commit the gate passed, so what is tagged is what was tested -- then
-#            makes the tag on it. The tag can refuse only for a name that already
-#            exists, and decide has already established that it does not.
+#   build    no credential. Packs the tarball from the gated commit with the record
+#            written in, and computes the tree that record commit will have.
+#   publish  skipped on a dry run. Has GitHub construct the record commit without
+#            moving main, publishes the tarball to npm while main is still the
+#            gated commit, then moves main to the record, tags it, and makes the
+#            GitHub release. A branch that moved during the run stops it before
+#            npm is touched, with nothing written but an unreferenced commit.
 #
-# NO PACKAGE CODE RUNS WHERE THE TOKEN DOES. git-cliff is an npm package, and the
-# App's token writes main past its ruleset and makes tags nobody can move. So
-# git-cliff runs in decide, which holds no secret, and hands publish the changelog
-# it wrote: a file read, not code run. publish runs GitHub's own actions, npm's
-# version bump, jq and gh, and nothing a dependency supplies.
+# A RELEASE LEFT HALF-DONE IS FINISHED, NEVER INFERRED. Dispatch again. Each write
+# in publish checks for itself first: npm already holding this version is accepted
+# only if its tarball is byte for byte the one built here; main already at the
+# record, or the tag already on it, is passed over; anything else stops the run.
 #
-# A run that stops between the two writes is finished by dispatching again:
-# decide finds main's head is the record and the tag absent, and makes the tag
-# alone.
+# NO PACKAGE CODE RUNS WHERE A CREDENTIAL DOES. git-cliff is an npm package, so it
+# runs in decide, which holds none, and hands on the files it wrote. build packs
+# with scripts off. publish runs GitHub's own actions, npm publishing a tarball with
+# scripts off, jq and gh, and nothing a dependency supplies.
 #
 # WHY AN APP. main takes no direct push, and the record writes main. The one
 # exemption is a GitHub App installed on this repository alone, the single bypass
-# actor on main-protection and version-tag-protection. Its credentials are environment secrets on `release`,
-# not repository secrets, and the environment admits main alone, by name, so a
-# workflow on any other branch cannot read them however it is changed. Not
-# "protected branches": GitHub's docs let every branch deploy where no branch
-# protection rule exists, and do not say whether a ruleset counts as one, which is
-# all that protects main here. A push from another branch that declares the
-# environment is refused it. There is
-# no required reviewer: with one maintainer it would confirm only what that
-# maintainer already decided by dispatching the run.
+# actor on main-protection and version-tag-protection. Its credentials are
+# environment secrets on `release`, not repository secrets, and the environment
+# admits main alone, by name, so a workflow on any other branch cannot read them
+# however it is changed. Not "protected branches": GitHub's docs let every branch
+# deploy where no branch protection rule exists, and do not say whether a ruleset
+# counts as one, which is all that protects main here. A push from another branch
+# that declares the environment is refused it. There is no required reviewer: with
+# one maintainer it would confirm only what that maintainer already decided by
+# dispatching the run.
+#
+# WHY NO NPM TOKEN. npm accepts this workflow, in the `release` environment, as the
+# package's trusted publisher: the job proves who it is through GitHub's OIDC token,
+# and npm generates the package's provenance from the same identity. There is no
+# publishing secret to keep.
 #
 # SETUP, once, by the owner -- recorded so it can be rebuilt:
 #   1. A GitHub App owned by @TylerVigario, `commitlint-config-release` (App ID
@@ -59,9 +66,17 @@ name: Release
 #      secrets.
 #   4. The App added to bypass_actors in .github/rulesets/main.json and
 #      version-tags.json by its numeric App ID, and both payloads re-applied.
+#   5. Immutable releases on, so a published release's assets cannot change.
+#   6. On npmjs.com, a trusted publisher for @tylervigario/commitlint-config:
+#      GitHub Actions, TylerVigario/commitlint-config, workflow `release.yml`,
+#      environment `release`; and publishing access that disallows tokens. npm
+#      configures it from the package's own settings, so the first version is
+#      published with NPM_TOKEN, a granular token for the @tylervigario scope that
+#      expires within days, held as a `release` environment secret for that one
+#      run and deleted after.
 #
-# A dry run needs none of that: decide and the gate run, and the entry goes to the
-# run summary. Nothing is written anywhere.
+# A dry run needs none of that: decide, the gate and build run, and the entry goes
+# to the run summary. Nothing is written anywhere.
 
 on:
   workflow_dispatch:
@@ -85,6 +100,9 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  PACKAGE: "@tylervigario/commitlint-config"
+
 jobs:
   decide:
     name: Decide the version
@@ -93,6 +111,7 @@ jobs:
       mode: ${{ steps.decide.outputs.mode }}
       version: ${{ steps.decide.outputs.version }}
       tag: ${{ steps.decide.outputs.tag }}
+      source: ${{ steps.decide.outputs.source }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -127,56 +146,67 @@ jobs:
         # pastes a value in as source text before bash sees it.
         env:
           BUMP: ${{ steps.step.outputs.bump }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           # With nothing bump-worthy since the last tag, git-cliff answers with
-          # that tag, whatever step was asked for, and the tag exists -- so
-          # "nothing to release" and "already released" are the same branch below.
+          # that tag, whatever step was asked for.
           next=$(npx --no-install git-cliff --config cliff.toml --bumped-version --bump "$BUMP" 2>/dev/null)
           [ -n "$next" ] || { echo "::error::git-cliff derived no version"; exit 1; }
           if git ls-remote --exit-code --tags origin "refs/tags/$next" > /dev/null; then
-            echo "mode=none" >> "$GITHUB_OUTPUT"
-            echo "$next is already tagged. Nothing to release."
-            exit 0
-          fi
-          if [ "$(git log -1 --format=%s HEAD)" = "chore(release): $next" ]; then
-            # The record landed and the tag did not: a run that stopped between
-            # the two writes. Finish it.
-            mode=tag
+            if gh release view "$next" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+              echo "mode=none" >> "$GITHUB_OUTPUT"
+              echo "$next is tagged and released. Nothing to release."
+              exit 0
+            fi
+            # Tagged with no GitHub release: a run that stopped after the tag.
+            mode=finish
+            source=$(git rev-parse "refs/tags/$next^{commit}")
+          elif [ "$(git log -1 --format=%s HEAD)" = "chore(release): $next" ]; then
+            # The record is on main and the tag is not: a run that stopped between.
+            mode=finish
+            source=$(git rev-parse HEAD)
           else
             mode=release
+            source=$GITHUB_SHA
           fi
-          echo "next=$next mode=$mode step=$BUMP"
+          echo "next=$next mode=$mode step=$BUMP source=$source"
           {
             echo "mode=$mode"
             echo "version=${next#v}"
             echo "tag=$next"
+            echo "source=$source"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Preview the entry
-        if: steps.decide.outputs.mode == 'release'
+      - name: Write the changelog and the release notes
+        if: steps.decide.outputs.mode != 'none'
         env:
           TAG: ${{ steps.decide.outputs.tag }}
+          MODE: ${{ steps.decide.outputs.mode }}
         run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/decided"
+          if [ "$MODE" = release ]; then
+            npx --no-install git-cliff --config cliff.toml --tag "$TAG" --output "$RUNNER_TEMP/decided/CHANGELOG.md"
+            npx --no-install git-cliff --config cliff.toml --unreleased --tag "$TAG" --strip all > "$RUNNER_TEMP/decided/notes.md"
+          elif git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
+            npx --no-install git-cliff --config cliff.toml --latest --strip all > "$RUNNER_TEMP/decided/notes.md"
+          else
+            npx --no-install git-cliff --config cliff.toml --unreleased --tag "$TAG" --strip all > "$RUNNER_TEMP/decided/notes.md"
+          fi
           {
-            echo "## $TAG, as it will be recorded"
+            echo "## $TAG, as it will be released"
             echo
-            npx --no-install git-cliff --config cliff.toml --unreleased --tag "$TAG" --strip all
+            cat "$RUNNER_TEMP/decided/notes.md"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Write the changelog
-        if: steps.decide.outputs.mode == 'release'
-        env:
-          TAG: ${{ steps.decide.outputs.tag }}
-        run: npx --no-install git-cliff --config cliff.toml --tag "$TAG" --output CHANGELOG.md
-
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: steps.decide.outputs.mode == 'release'
+        if: steps.decide.outputs.mode != 'none'
         with:
-          name: changelog
-          path: CHANGELOG.md
+          name: decided
+          path: ${{ runner.temp }}/decided/
           if-no-files-found: error
-          # A re-run of this job replaces the file rather than failing on the name.
+          # A re-run of this job replaces the files rather than failing on the name.
           overwrite: true
           retention-days: 1
 
@@ -188,101 +218,241 @@ jobs:
     permissions:
       contents: read
 
-  publish:
-    name: Record and tag
+  build:
+    name: Pack the tarball
     needs: [decide, gate]
-    # A tag-only run skips the gate: the commit it tags was gated by the run
-    # that recorded it, and it changes nothing but the receipt.
+    # A finishing run skips the gate: the commit it packs was gated by the run that
+    # recorded it, and differs from that run's tarball not at all.
     if: >-
-      always() && !inputs.dry-run &&
+      always() &&
       ((needs.decide.outputs.mode == 'release' && needs.gate.result == 'success') ||
-       needs.decide.outputs.mode == 'tag')
+       needs.decide.outputs.mode == 'finish')
     runs-on: ubuntu-latest
-    environment: release
-    permissions:
-      contents: read
+    outputs:
+      tarball: ${{ steps.pack.outputs.tarball }}
+      sha256: ${{ steps.pack.outputs.sha256 }}
+      integrity: ${{ steps.pack.outputs.integrity }}
+      tree: ${{ steps.pack.outputs.tree }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ needs.decide.outputs.source }}
           persist-credentials: false
 
+      # The Node and so the npm that pack the tarball are the ones .nvmrc names:
+      # npm pack is byte for byte repeatable only by the same npm.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
 
-      # decide's changelog, over the checkout's.
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        if: needs.decide.outputs.mode == 'release'
         with:
-          name: changelog
+          name: decided
+          path: ${{ runner.temp }}/decided
 
-      - name: Bump the version
+      - name: Write the record into the tree
         if: needs.decide.outputs.mode == 'release'
         env:
           VERSION: ${{ needs.decide.outputs.version }}
-        run: npm version "$VERSION" --no-git-tag-version --allow-same-version > /dev/null
+        run: |
+          set -euo pipefail
+          cp "$RUNNER_TEMP/decided/CHANGELOG.md" CHANGELOG.md
+          npm version "$VERSION" --no-git-tag-version --allow-same-version > /dev/null
 
-      # Minted last, so nothing before it in this job ran while it existed.
+      - name: Pack
+        id: pack
+        env:
+          VERSION: ${{ needs.decide.outputs.version }}
+        run: |
+          set -euo pipefail
+          [ "$(node -p 'require("./package.json").version')" = "$VERSION" ] \
+            || { echo "::error::package.json does not hold $VERSION"; exit 1; }
+          mkdir -p "$RUNNER_TEMP/release"
+          tarball=$(npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP/release" --json | jq -r '.[0].filename')
+          path="$RUNNER_TEMP/release/$tarball"
+          # The tree the record commit must have: the checkout with the record in it.
+          git add package.json package-lock.json CHANGELOG.md
+          {
+            echo "tarball=$tarball"
+            echo "sha256=$(sha256sum "$path" | cut -d' ' -f1)"
+            echo "integrity=sha512-$(openssl dgst -sha512 -binary "$path" | base64 -w0)"
+            echo "tree=$(git write-tree)"
+          } >> "$GITHUB_OUTPUT"
+          cp package.json package-lock.json CHANGELOG.md "$RUNNER_TEMP/release/"
+          cp "$RUNNER_TEMP/decided/notes.md" "$RUNNER_TEMP/release/"
+          cat "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release
+          path: ${{ runner.temp }}/release/
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 1
+
+  publish:
+    name: Publish, record and tag
+    needs: [decide, build]
+    if: always() && !inputs.dry-run && needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          # No checkout here, so the version is named rather than read from .nvmrc.
+          # Trusted publishing needs npm 11.5.1 or later; Node 24.22.0 ships 11.19.1.
+          node-version: 24.22.0
+          registry-url: https://registry.npmjs.org
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: ${{ runner.temp }}/release
+
+      - name: Check the tarball is the one build packed
+        env:
+          TARBALL: ${{ needs.build.outputs.tarball }}
+          SHA256: ${{ needs.build.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          echo "$SHA256  $RUNNER_TEMP/release/$TARBALL" | sha256sum --check --strict
+
       - name: Mint a token for the release App
         id: app-token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ secrets.RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
-          # The token can do what this job does, write the record and its tag, and nothing
-          # else the App is installed with.
+          # The token can do what this job does, write the record, its tag and the
+          # release, and nothing else the App is installed with.
           permission-contents: write
 
-      - name: Write the record to main
+      - name: Construct the record commit, without moving main
         id: record
         if: needs.decide.outputs.mode == 'release'
-        # NOT `git commit && git push`. A push sends an object already built, so
-        # it arrives unsigned no matter which token carried it.
-        # createCommitOnBranch has GitHub construct the object and sign it with
-        # its own key.
-        #
-        # expectedHeadOid is the commit the gate passed. If anything landed on
-        # main since, the forge refuses and nothing is written: dispatch again,
-        # and the new head is gated and released instead.
+        # The git data API: GitHub builds the commit and signs it with its own key
+        # because the request names no author, committer or signature. Nothing
+        # points at it yet, so a run that stops here leaves nothing anyone reads.
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          SOURCE: ${{ needs.decide.outputs.source }}
+          TREE: ${{ needs.build.outputs.tree }}
           TAG: ${{ needs.decide.outputs.tag }}
         run: |
           set -euo pipefail
-          jq -n \
-            --arg repo "$GITHUB_REPOSITORY" \
-            --arg head "$GITHUB_SHA" \
-            --arg msg "chore(release): $TAG" \
-            --rawfile pkg package.json \
-            --rawfile lock package-lock.json \
-            --rawfile log CHANGELOG.md \
-            '{query:"mutation($input:CreateCommitOnBranchInput!){createCommitOnBranch(input:$input){commit{oid}}}",
-              variables:{input:{
-                branch:{repositoryNameWithOwner:$repo,branchName:"main"},
-                expectedHeadOid:$head,
-                message:{headline:$msg},
-                fileChanges:{additions:[
-                  {path:"package.json",contents:($pkg|@base64)},
-                  {path:"package-lock.json",contents:($lock|@base64)},
-                  {path:"CHANGELOG.md",contents:($log|@base64)}]}}}}' > "$RUNNER_TEMP/mutation.json"
-          if ! oid=$(gh api graphql --input "$RUNNER_TEMP/mutation.json" --jq '.data.createCommitOnBranch.commit.oid') || [ -z "$oid" ]; then
-            echo "::error::main is no longer the commit the gate passed, or the forge refused. Nothing was written; dispatch again."
-            exit 1
-          fi
-          echo "recorded $TAG as $oid"
+          api="repos/$GITHUB_REPOSITORY/git"
+          base=$(gh api "$api/commits/$SOURCE" --jq .tree.sha)
+          entries=$(for f in package.json package-lock.json CHANGELOG.md; do
+            sha=$(jq -n --rawfile c "$RUNNER_TEMP/release/$f" '{content: ($c | @base64), encoding: "base64"}' \
+              | gh api "$api/blobs" --input - --jq .sha)
+            jq -n --arg p "$f" --arg s "$sha" '{path: $p, mode: "100644", type: "blob", sha: $s}'
+          done | jq -s .)
+          tree=$(jq -n --arg b "$base" --argjson e "$entries" '{base_tree: $b, tree: $e}' \
+            | gh api "$api/trees" --input - --jq .sha)
+          [ "$tree" = "$TREE" ] || { echo "::error::the record's tree $tree is not the tree build packed, $TREE"; exit 1; }
+          read -r oid verified < <(jq -n --arg m "chore(release): $TAG" --arg t "$tree" --arg p "$SOURCE" \
+            '{message: $m, tree: $t, parents: [$p]}' \
+            | gh api "$api/commits" --input - --jq '"\(.sha) \(.verification.verified)"')
+          [ "$verified" = true ] || { echo "::error::GitHub did not sign the record commit $oid"; exit 1; }
+          echo "constructed the record $oid, signed by GitHub, on $SOURCE"
           echo "oid=$oid" >> "$GITHUB_OUTPUT"
 
+      - name: Stop if main has moved
+        if: needs.decide.outputs.mode == 'release'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          SOURCE: ${{ needs.decide.outputs.source }}
+        run: |
+          set -euo pipefail
+          head=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
+          [ "$head" = "$SOURCE" ] || {
+            echo "::error::main moved to $head during the run. Nothing was published; dispatch again."
+            exit 1
+          }
+
+      - name: Publish to npm
+        env:
+          TARBALL: ${{ needs.build.outputs.tarball }}
+          INTEGRITY: ${{ needs.build.outputs.integrity }}
+          VERSION: ${{ needs.decide.outputs.version }}
+          # Empty once the trusted publisher is configured; npm tries OIDC first.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          published=$(npm view "$PACKAGE@$VERSION" dist.integrity 2> /dev/null || true)
+          if [ -z "$published" ]; then
+            npm publish "$RUNNER_TEMP/release/$TARBALL" --access public --provenance --ignore-scripts
+            echo "published $PACKAGE@$VERSION"
+          elif [ "$published" = "$INTEGRITY" ]; then
+            echo "$PACKAGE@$VERSION is already on npm, byte for byte this tarball"
+          else
+            echo "::error::$PACKAGE@$VERSION is on npm with other bits ($published). Stopping."
+            exit 1
+          fi
+
+      - name: Move main to the record
+        if: needs.decide.outputs.mode == 'release'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          OID: ${{ steps.record.outputs.oid }}
+        run: |
+          set -euo pipefail
+          # force=false: a fast-forward or nothing.
+          if ! gh api --method PATCH "repos/$GITHUB_REPOSITORY/git/refs/heads/main" \
+               -f sha="$OID" -F force=false > /dev/null; then
+            echo "::error::npm has the release and main does not. main moved after the check; record it by hand on $OID."
+            exit 1
+          fi
+          echo "main -> $OID"
+
       - name: Tag the record
+        id: tag
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           TAG: ${{ needs.decide.outputs.tag }}
-          # In a tag-only run the record is the commit this run was dispatched at.
-          OID: ${{ steps.record.outputs.oid || github.sha }}
+          OID: ${{ steps.record.outputs.oid || needs.decide.outputs.source }}
         run: |
           set -euo pipefail
-          if ! gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$TAG" -f sha="$OID" > /dev/null; then
-            echo "::error::$TAG is recorded on main but not tagged. Dispatch again: it finds the record and tags it."
+          at=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq .object.sha 2> /dev/null || true)
+          if [ -z "$at" ]; then
+            gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$TAG" -f sha="$OID" > /dev/null
+            echo "tagged $TAG -> $OID"
+          elif [ "$at" = "$OID" ]; then
+            echo "$TAG is already on $OID"
+          else
+            echo "::error::$TAG already names $at, not the record $OID"
             exit 1
           fi
-          echo "tagged $TAG -> $OID"
+
+      - name: Attest the tarball
+        id: attest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/release/${{ needs.build.outputs.tarball }}
+
+      - name: Make the GitHub release
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          TAG: ${{ needs.decide.outputs.tag }}
+          TARBALL: ${{ needs.build.outputs.tarball }}
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/release"
+          cp "$BUNDLE" "$TARBALL.sigstore.json"
+          # Drafted, everything attached, then published: immutability falls on
+          # publication, so nothing can be added after it.
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --verify-tag \
+              --title "$TAG" --notes-file notes.md
+          fi
+          if [ "$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = true ]; then
+            gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber "$TARBALL" "$TARBALL.sigstore.json"
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false
+          fi
+          echo "released $TAG"
