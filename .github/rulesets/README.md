@@ -101,9 +101,9 @@ a setting drifting back.
 
 ## `tags.json`
 
-A release here *is* a tag, consumed through `#semver:` ranges, so a tag that moved
-would hand a consumer different code under a version they had already resolved — and
-the one who already holds it is never told. `deletion`, `non_fast_forward` and
+A tag names the commit a version was published from, so a tag that moved would point a
+reader at code that version never contained — and the one who already holds it is never
+told. `deletion`, `non_fast_forward` and
 `update`: the last is the one that matters, because advancing a tag to a descendant is
 a fast-forward and the first two say nothing about it. With all three a tag is
 create-once — the first push of a name is accepted and every later one refused. It
@@ -130,6 +130,6 @@ from these tags, so one it did not make would steer the next release, and under
 ## Why this repository is worth protecting
 
 It defines what a conforming commit is for every repository that consumes it. A bad
-commit on `main` here changes what every downstream repository accepts, and the
-`#semver:` ranges consumers pin against resolve from this repository's tags — so the
-blast radius is every Node project in the estate, not just this one.
+commit on `main` here changes what every downstream repository accepts, and every
+version on npm is packed from `main` — so the blast radius is every project that installs
+it, not just this one.

@@ -33,15 +33,10 @@ package you meant. Same failure, and only one of them points at it.
 
 ## Install
 
-Distributed from git rather than a registry. Pin a tag, or take a semver range against
-the tags:
+From npm:
 
-```jsonc
-"devDependencies": {
-  "@commitlint/cli": "^21",
-  "conventional-changelog-conventionalcommits": "^10",
-  "@tylervigario/commitlint-config": "github:TylerVigario/commitlint-config#semver:^0.4.0"
-}
+```bash
+npm install --save-dev @commitlint/cli conventional-changelog-conventionalcommits @tylervigario/commitlint-config
 ```
 
 `conventional-changelog-conventionalcommits` is a **peer** dependency — the parser preset,
@@ -151,7 +146,7 @@ fails in another, which is not a standard.
 **`extends` resolves from the config file's real directory, not the consumer's.** That
 one fact explains everything below.
 
-Installed normally — from git, or from a tarball — this package lands as a real directory
+Installed normally — from npm, or from a tarball — this package lands as a real directory
 at `node_modules/@tylervigario/commitlint-config`. Resolving the parser preset from there walks up
 into the consumer's `node_modules` and finds it. That is why
 `conventional-changelog-conventionalcommits` is a **peer** dependency: the consumer already
@@ -180,24 +175,41 @@ The same applies to `npm link`, for the same reason.
 consumer *authoring* a plugin needs a `.js` config — but inheriting one does not, because
 the functions live in this package. `.commitlintrc.json` with three lines works.
 
-**Pin a tag, not a branch.** `#semver:^0.4.0` resolves against this repository's tags and
-`package-lock.json` records the resolved commit, so consumers upgrade deliberately rather
-than drifting when `main` moves.
+**Published to npm, with provenance.** It exists for anyone whose commits
+config-conventional rejects for opinions the specification does not hold, and npm is
+where they would look. `package-lock.json` records the exact version and its integrity,
+so a consumer upgrades deliberately. Every version is published by this repository's
+Release workflow, as npm's trusted publisher, and carries a provenance attestation npm
+checks for the consumer.
 
-**Not published to a registry**, deliberately. Distribution is by git dependency, which
-needs no credentials for a public repository, no publish pipeline, and no name held
-anywhere. Tags, semver ranges and lockfile pinning all work regardless; what a registry
-would add is discoverability and provenance attestations, neither of which this needs.
+## Verifying a release
+
+```bash
+# In a consumer, npm's own check of every installed package's signatures and provenance:
+npm audit signatures
+
+# The tarball, against the attestation on the GitHub release beside it:
+gh attestation verify tylervigario-commitlint-config-<version>.tgz \
+  --repo TylerVigario/commitlint-config \
+  --signer-workflow TylerVigario/commitlint-config/.github/workflows/release.yml \
+  --source-ref refs/heads/main
+
+# The release itself: its tag, its commit and its assets, as GitHub published them:
+gh release verify v<version> --repo TylerVigario/commitlint-config
+```
+
+The tarball's attestation is signed by `release.yml` running on `main`, and by nothing
+else; one from any other workflow or branch is not this package's.
 
 ## Releases
 
-A release is a tag, `v<version>`, made by the Release workflow on a commit that
-records that version in `package.json` and its entry in
-[`CHANGELOG.md`](CHANGELOG.md). The version comes from the commits since the last
+A release is a version on npm, published by the Release workflow from a tarball it
+packs once. The same tarball and its attestation are the assets of the GitHub release
+`v<version>`, and the tag names the commit that records that version in `package.json`
+and its entry in [`CHANGELOG.md`](CHANGELOG.md). The version comes from the commits since the last
 tag: `feat` bumps the minor version, `fix` the patch, and before 1.0 a breaking
 change bumps the minor as well. Tags are create-once — none is moved or deleted —
-so the commit `#semver:^0.4.0` resolves to today is the one it resolves to for
-ever.
+so the commit a version names today is the one it names for ever.
 
 ## Licence
 
