@@ -43,6 +43,8 @@ jobs:
     name: Validate PR title
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    # A hung job fails here rather than holding its check for six hours.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -72,6 +74,7 @@ jobs:
     name: Lint main
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7.0.1
         with:
