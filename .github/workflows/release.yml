@@ -38,8 +38,12 @@ name: Release
 # WHY AN APP. main takes no direct push, and the record writes main. The one
 # exemption is a GitHub App installed on this repository alone, the single bypass
 # actor on main-protection and version-tag-protection. Its credentials are environment secrets on `release`,
-# not repository secrets, and the environment admits protected branches only, so
-# a workflow on any other branch cannot read them however it is changed. There is
+# not repository secrets, and the environment admits main alone, by name, so a
+# workflow on any other branch cannot read them however it is changed. Not
+# "protected branches": GitHub's docs let every branch deploy where no branch
+# protection rule exists, and do not say whether a ruleset counts as one, which is
+# all that protects main here. A push from another branch that declares the
+# environment is refused it. There is
 # no required reviewer: with one maintainer it would confirm only what that
 # maintainer already decided by dispatching the run.
 #
@@ -49,7 +53,7 @@ name: Release
 #      Webhook off.
 #   2. Installed on this repository only. An installation does not follow a
 #      repository transfer; re-install after one.
-#   3. A `release` environment with deployments limited to protected branches and
+#   3. A `release` environment with deployments limited to the branch `main` and
 #      no required reviewer, holding RELEASE_APP_CLIENT_ID (the Iv23li... Client
 #      ID, not the numeric App ID) and RELEASE_APP_PRIVATE_KEY as environment
 #      secrets.
