@@ -29,7 +29,7 @@ instead.
 ```bash
 git clone https://github.com/TylerVigario/commitlint-config.git
 cd commitlint-config
-npm ci
+npm ci --ignore-scripts
 node --test
 ```
 
@@ -58,5 +58,11 @@ in this checkout. The README's *Packaging* section has the detail.
   their release tag, as the tool writes them. The repository refuses to start a
   workflow the lockfile does not record, and the `Lockfile verifies` check names
   what is missing.
+- **A dependency's new version waits a week.** `.npmrc` sets
+  `min-release-age=7`, so npm installs nothing published more recently, and
+  Dependabot proposes nothing younger either (a major waits two weeks). Security
+  updates are not held by Dependabot; a version needed sooner is named in
+  `min-release-age-exclude` for that one install. No dependency runs an install
+  script, and every install here runs with scripts off.
 - **Releases are not made by pull request.** The Release workflow records the
   version and tags it; see the README's *Releases* section.

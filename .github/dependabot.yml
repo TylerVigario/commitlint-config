@@ -9,6 +9,14 @@
 # Grouped for minor and patch only. A major is where the breakage lives, and in a
 # group a bump that is fine is held back by one that is not -- so a major arrives
 # on its own and can be refused on its own.
+#
+# A new version waits a week before it is proposed, and a major two: most
+# compromised releases are found and pulled within days, and a major is the
+# bump most likely to need reading. .npmrc holds installs to the same week.
+# Security updates are not held; Dependabot's cooldown leaves them alone.
+# GitHub Actions refuses the per-bump keys, and one refused key fails this whole
+# file, leaving Dependabot on the last version it accepted -- so its entry
+# carries the week alone.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -19,6 +27,9 @@ updates:
       development:
         patterns: ['*']
         update-types: [minor, patch]
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
     commit-message:
       prefix: chore
       prefix-development: chore
@@ -31,5 +42,7 @@ updates:
       actions:
         patterns: ['*']
         update-types: [minor, patch]
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: ci
