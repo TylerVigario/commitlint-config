@@ -1,7 +1,6 @@
 name: CI
 
-# Public repository, so minutes are free and uncapped, and the repository
-# standard's rule 9 asks for one job per assertion — the shape here.
+# Public repository, so minutes are free and uncapped: one job per assertion.
 #
 #   Config behaves             every clause of index.mjs's contract, against a
 #                              config on disk.
@@ -27,7 +26,7 @@ name: CI
 # package.json, and nothing in the rules changed. Grouping them would report one
 # red check for two unrelated repairs, and the second job is roughly ten times the
 # wall clock of the first because it runs a real npm install — so grouping also
-# holds the fast answer hostage, which is rule 9's own argument.
+# holds the fast answer hostage.
 #
 # WHY THE SECOND EXISTS AT ALL. Everything the first asserts is reached through a
 # path on disk, which skips `exports`, `main`, the peer dependency and commitlint's
